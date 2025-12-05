@@ -112,11 +112,6 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# PyTorch
-*.pt
-*.pth
-checkpoints/
-
 # Training outputs
 runs/
 wandb/
