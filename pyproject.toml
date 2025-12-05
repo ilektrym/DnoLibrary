@@ -71,6 +71,10 @@ dependencies = [
     "wcwidth==0.2.14"
 ]
 
+[project.urls]
+Homepage = "https://github.com/ilektrym/DnoLibrary"
+Repository = "https://github.com/ilektrym/DnoLibrary.git"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
