@@ -11,6 +11,7 @@ import torch.optim as optim
 import torch
 from ultralytics import YOLO
 from pathlib import Path
+import math
 
 def calculate_center(keypoints):
     """
@@ -239,6 +240,67 @@ def process_skeleton_Norm(skeleton):
         keypoints = keypoints.cpu().numpy() if hasattr(keypoints, 'cpu') else keypoints 
         keypoints = np.array([[np.nan if v is None else v for v in point] for point in keypoints])  
         return normalize_keypoints(keypoints)[0], normalize_keypoints(keypoints)[1]
+    
+def get_normalized_leg_points(vectors, thigh_to_shin_ratio=1.1):
+    """
+    Пересчитывает длины ног и возвращает точки коленей и стоп в формате numpy массива.
+    
+    Args:
+        vectors: массив векторов [x1, y1, x2, y2, length, angle]
+        thigh_to_shin_ratio: соотношение бедро:голень
+        
+    Returns:
+        numpy array в формате [[левое_колено_x, левое_колено_y],
+                               [правое_колено_x, правое_колено_y],
+                               [левая_стопа_x, левая_стопа_y],
+                               [правая_стопа_x, правая_стопа_y]]
+    """
+    # Копируем массив
+    vec = np.copy(vectors)
+    
+    def update_leg(thigh_idx, shin_idx):
+        hip_x, hip_y = vec[thigh_idx][0], vec[thigh_idx][1]
+        ankle_x, ankle_y = vec[shin_idx][2], vec[shin_idx][3]
+        
+        # Вектор от бедра к стопе
+        dir_x = ankle_x - hip_x
+        dir_y = ankle_y - hip_y
+        total_dist = math.sqrt(dir_x**2 + dir_y**2)
+        
+        if total_dist > 0:
+            # Нормализуем направление
+            dir_x /= total_dist
+            dir_y /= total_dist
+            
+            # Текущая общая длина ноги
+            current_length = vec[thigh_idx][4] + vec[shin_idx][4]
+            
+            # Новые длины по пропорциям
+            thigh_len = current_length * (thigh_to_shin_ratio / (1 + thigh_to_shin_ratio))
+            
+            # Новые точки
+            new_knee_x = hip_x + dir_x * thigh_len
+            new_knee_y = hip_y + dir_y * thigh_len
+            new_ankle_x = hip_x + dir_x * current_length
+            new_ankle_y = hip_y + dir_y * current_length
+            
+            return new_knee_x, new_knee_y, new_ankle_x, new_ankle_y
+        else:
+            return vec[thigh_idx][2], vec[thigh_idx][3], ankle_x, ankle_y
+    
+    # Обновляем обе ноги
+    left_knee_x, left_knee_y, left_ankle_x, left_ankle_y = update_leg(8, 10)
+    right_knee_x, right_knee_y, right_ankle_x, right_ankle_y = update_leg(9, 11)
+    
+    # Формируем результат в нужном формате
+    result = np.array([
+        [left_knee_x, left_knee_y],
+        [right_knee_x, right_knee_y],
+        [left_ankle_x, left_ankle_y],
+        [right_ankle_x, right_ankle_y]
+    ])
+    
+    return result
 
 class PoseCompletionNet(nn.Module):
     def __init__(self, input_size=72, hidden_sizes=[512, 1024, 512, 256], output_size=8, dropout_rate=0.3):
@@ -344,7 +406,16 @@ class PoseProcessor:
         norm[14] = result_numpy[2]
         norm[16] = result_numpy[3]
 
-        return [norm*process_skeleton(keypoints)[1][1] + process_skeleton(keypoints)[1][0]]
+        res_norm = [norm*process_skeleton(keypoints)[1][1] + process_skeleton(keypoints)[1][0]]
+        vectors = process_skeleton(res_norm)[0]
+        res = get_normalized_leg_points(vectors)
+        res = [res*process_skeleton(keypoints)[1][1] + process_skeleton(keypoints)[1][0]]
+        res_norm[0][13] = res[0][0]
+        res_norm[0][15] = res[0][2]
+        res_norm[0][14] = res[0][1]
+        res_norm[0][16] = res[0][3]
+
+        return res_norm
     
     def plot_keypoints(self, image_path):
         """
