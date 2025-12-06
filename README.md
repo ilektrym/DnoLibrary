@@ -30,7 +30,7 @@ image = "Путь к файлу"
 posePro = PoseProcessor()
 
 #Вывод скилета
-posePro.plot_keypoints(image)
+print(posePro.process_image(img))
 
 #Вывод скилета на фото
 posePro.plot_keypoints(img)
