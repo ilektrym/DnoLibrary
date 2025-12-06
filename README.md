@@ -23,8 +23,6 @@ pip install -e .
 Базовый пример
 ```
 from DnoLibrary import PoseProcessor
-import glob
-import os
 
 image = "Путь к файлу"
 posePro = PoseProcessor()
