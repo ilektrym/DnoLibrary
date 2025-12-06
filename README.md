@@ -24,7 +24,7 @@ pip install -e .
 ```
 from DnoLibrary import PoseProcessor
 
-image = "Путь к файлу"
+img = "Путь к файлу"
 posePro = PoseProcessor()
 
 #Вывод скилета
